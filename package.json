@@ -1,0 +1,15 @@
+{
+  "name": "iptv-player",
+  "version": "2.0.0",
+  "description": "IPTV Player - Tu TV personal en cualquier dispositivo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --dev"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "xml2js": "^0.6.2"
+  }
+}
