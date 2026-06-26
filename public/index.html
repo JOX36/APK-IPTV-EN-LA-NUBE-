@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a1a">
+<title>📺 IPTV Player</title>
+<style>
+/* ─── Reset & Variables ──────────────────────────────────── */
+:root {
+  --bg: #0a0a1a; --bg2: #111128; --bg3: #161638; --bg4: #1e1e4a;
+  --accent: #6366f1; --accent2: #818cf8; --glow: rgba(99,102,241,.3);
+  --txt: #e2e8f0; --txt2: #94a3b8; --txt3: #64748b;
+  --border: #1e293b; --danger: #ef4444; --ok: #22c55e;
+  --r: 12px; --r2: 8px; --side: 280px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden;height:100vh;height:100dvh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+input,select,button{font-family:inherit}
+
+/* ─── Layout ─────────────────────────────────────────────── */
+#app{display:flex;height:100vh;height:100dvh;overflow:hidden}
+.sidebar{width:var(--side);min-width:var(--side);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:.2s;z-index:10}
+.sidebar.collapsed{width:56px;min-width:56px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Sidebar ────────────────────────────────────────────── */
+.side-hdr{padding:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.logo-i{font-size:22px;flex-shrink:0}
+.logo-t{font-size:17px;font-weight:700;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.sec{padding:10px 14px;border-bottom:1px solid var(--border)}
+.sec h3{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txt3);margin-bottom:8px}
+.src-btns{display:flex;flex-direction:column;gap:6px}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border:none;border-radius:var(--r2);font-size:12px;font-weight:600;cursor:pointer;transition:.2s;width:100%}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent2);box-shadow:0 0 16px var(--glow)}
+.btn-s{background:var(--bg3);color:var(--txt);border:1px solid var(--border)}.btn-s:hover{background:var(--bg4);border-color:var(--accent)}
+.btn-sm{padding:6px 10px;font-size:11px;width:auto}
+.cur-src{margin-top:6px;padding:5px 8px;background:var(--bg3);border-radius:var(--r2);word-break:break-all;font-size:10px;color:var(--txt3)}
+.search{position:relative;margin-bottom:0}.search input{width:100%;padding:9px 32px 9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-size:12px;outline:0;transition:.2s}.search input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--glow)}.search input::placeholder{color:var(--txt3)}
+.search-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:0;border:0;color:var(--txt3);cursor:pointer;font-size:13px;padding:4px}
+.cats{flex:1;overflow-y:auto}.cat-list{display:flex;flex-direction:column;gap:1px}
+.cat{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r2);cursor:pointer;transition:.15s;user-select:none}
+.cat:hover{background:var(--bg3)}.cat.on{background:var(--accent);color:#fff}
+.cat-i{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.cat-n{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-c{font-size:10px;background:var(--bg3);color:var(--txt3);padding:2px 7px;border-radius:10px;flex-shrink:0}
+.cat.on .cat-c{background:rgba(255,255,255,.2);color:#fff}
+
+/* ─── Playlist Tabs ──────────────────────────────────────── */
+.pl-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
+.pl-tab{padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;transition:.15s;color:var(--txt2);display:flex;align-items:center;gap:4px}
+.pl-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pl-tab .rm{opacity:.5;font-size:10px;cursor:pointer}.pl-tab .rm:hover{opacity:1;color:var(--danger)}
+
+/* ─── Player ─────────────────────────────────────────────── */
+.player-area{position:relative;background:#000;min-height:220px;max-height:45vh;flex-shrink:0;transition:.3s}
+.player-area.full{max-height:none;flex:1}
+video{width:100%;height:100%;object-fit:contain;background:#000}
+.p-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.7) 0%,transparent 25%,transparent 75%,rgba(0,0,0,.8) 100%);display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;transition:opacity .3s}
+.p-overlay>*{pointer-events:auto}
+.p-top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+.np{display:flex;align-items:center;gap:10px}
+.np-logo{font-size:28px}.np-info h2{font-size:15px;font-weight:600}.np-cat{font-size:11px;color:var(--txt2);opacity:.8}
+.p-ctrls{display:flex;gap:6px}
+.ib{background:rgba(255,255,255,.1);border:0;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:.2s;color:#fff}
+.ib:hover{background:rgba(255,255,255,.2)}
+.p-bot{display:flex;align-items:center;gap:10px;padding:10px 16px}
+.nb{background:rgba(255,255,255,.1);border:0;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:.15s;color:#fff}
+.nb:hover{background:var(--accent);transform:scale(1.1)}
+.vol{display:flex;align-items:center;gap:6px;margin-left:auto}
+.vol input{width:70px;accent-color:var(--accent);cursor:pointer}
+.s-info{font-size:10px;color:var(--txt2);background:rgba(0,0,0,.5);padding:3px 8px;border-radius:10px}
+.placeholder{width:100%;height:100%;min-height:220px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg),var(--bg2))}
+.ph-c{text-align:center}.ph-i{font-size:56px;display:block;margin-bottom:12px;opacity:.4}
+.ph-c h2{font-size:22px;font-weight:700;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.ph-c p{color:var(--txt3);font-size:13px}
+
+/* ─── EPG Bar ────────────────────────────────────────────── */
+.epg-bar{display:flex;gap:6px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+.epg-item{flex-shrink:0;padding:6px 12px;background:var(--bg3);border-radius:6px;font-size:11px;cursor:pointer;transition:.15s;border:1px solid transparent;min-width:140px}
+.epg-item:hover,.epg-item.now{border-color:var(--accent);background:rgba(99,102,241,.1)}
+.epg-item .epg-time{color:var(--accent);font-weight:600;font-size:10px}
+.epg-item .epg-title{color:var(--txt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epg-empty{color:var(--txt3);font-size:12px;padding:6px 0}
+
+/* ─── Grid ───────────────────────────────────────────────── */
+.grid-area{flex:1;overflow-y:auto;padding:14px 16px}
+.grid-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.grid-hdr h3{font-size:14px;font-weight:600}
+.ch-count{color:var(--txt3);font-weight:400}
+.view-t{display:flex;gap:3px;background:var(--bg3);border-radius:var(--r2);padding:2px}
+.view-t button{background:0;border:0;padding:5px 10px;border-radius:6px;cursor:pointer;color:var(--txt3);font-size:14px;transition:.15s}
+.view-t button.on{background:var(--accent);color:#fff}
+.ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.ch-grid.list{display:flex;flex-direction:column;gap:3px}
+.ch-grid.list .card{flex-direction:row;align-items:center;padding:8px 14px}
+.ch-grid.list .card-logo{width:36px;height:36px;margin-bottom:0;margin-right:10px}
+.ch-grid.list .card-info{text-align:left}
+.ch-grid.list .card-fav{position:static}
+.card{display:flex;flex-direction:column;align-items:center;padding:14px 10px;background:var(--bg3);border-radius:var(--r);cursor:pointer;transition:.2s;border:1px solid transparent;position:relative}
+.card:hover{background:var(--bg4);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.card.on{border-color:var(--accent);background:rgba(99,102,241,.1);box-shadow:0 0 16px var(--glow)}
+.card.on::after{content:'▶';position:absolute;top:6px;left:6px;background:var(--accent);color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px}
+.card-logo{width:48px;height:48px;border-radius:var(--r2);overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg2);margin-bottom:8px;flex-shrink:0}
+.card-logo img{width:100%;height:100%;object-fit:contain}
+.fallback{font-size:24px;opacity:.4}
+.card-info{text-align:center;width:100%;min-width:0}
+.card-info h4{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.card-grp{font-size:10px;color:var(--txt3)}
+.card-fav{position:absolute;top:6px;right:6px;background:0;border:0;font-size:14px;cursor:pointer;opacity:0;transition:.15s;padding:3px}
+.card:hover .card-fav{opacity:1}
+.empty{text-align:center;padding:40px 12px;color:var(--txt3)}
+.pg{display:flex;align-items:center;justify-content:center;gap:14px;padding:14px}
+.pg button{background:var(--bg3);border:1px solid var(--border);color:var(--txt);padding:7px 14px;border-radius:var(--r2);cursor:pointer;transition:.15s}
+.pg button:hover:not(:disabled){background:var(--accent);border-color:var(--accent)}
+.pg button:disabled{opacity:.3;cursor:not-allowed}
+.pg span{color:var(--txt2);font-size:13px}
+
+/* ─── Recording Badge ────────────────────────────────────── */
+.rec-badge{display:inline-flex;align-items:center;gap:4px;background:var(--danger);color:#fff;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.rec-dot{width:6px;height:6px;background:#fff;border-radius:50%}
+
+/* ─── Quality Selector ───────────────────────────────────── */
+.quality-menu{position:absolute;bottom:60px;right:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px;z-index:20;min-width:150px}
+.q-opt{padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:.15s;display:flex;align-items:center;gap:8px}
+.q-opt:hover{background:var(--bg3)}
+.q-opt.on{background:var(--accent);color:#fff}
+.q-dot{width:6px;height:6px;border-radius:50%;background:var(--txt3)}
+.q-opt.on .q-dot{background:#fff}
+
+/* ─── Modal ──────────────────────────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(3px)}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:22px;width:92%;max-width:420px;box-shadow:0 16px 50px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:14px}
+.modal input,.modal select,.modal textarea{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-size:13px;outline:0;margin-bottom:12px;transition:.2s}
+.modal input:focus,.modal select:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--glow)}
+.modal textarea{resize:vertical;min-height:60px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.modal-btns .btn{width:auto;padding:9px 20px}
+.modal .row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.modal .row label{flex:1;font-size:12px;color:var(--txt2)}
+.modal .row input{flex:2;margin-bottom:0}
+
+/* ─── Kids Mode Lock ─────────────────────────────────────── */
+.kids-lock{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:16px}
+.kids-lock .kl-i{font-size:64px}
+.kids-lock h2{font-size:20px}
+.pin-input{display:flex;gap:8px}
+.pin-input input{width:48px;height:56px;text-align:center;font-size:24px;background:var(--bg3);border:2px solid var(--border);border-radius:var(--r);color:var(--txt);outline:0;transition:.2s}
+.pin-input input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+
+/* ─── Toast ──────────────────────────────────────────────── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);padding:10px 20px;border-radius:var(--r);font-size:13px;z-index:300;box-shadow:0 8px 30px rgba(0,0,0,.4);transition:.3s;opacity:0;pointer-events:none}
+.toast.show{opacity:1;pointer-events:auto}
+
+/* ─── Mobile Menu ────────────────────────────────────────── */
+.mobile-menu{display:none;position:fixed;top:8px;left:8px;z-index:15;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:8px 12px;font-size:18px;cursor:pointer}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media(max-width:768px){
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:20;transform:translateX(0)}
+  .sidebar.collapsed{transform:translateX(-100%);width:var(--side)}
+  .mobile-menu{display:block}
+  .ch-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .p-top,.p-bot{padding:8px 12px}
+}
+@media(max-width:480px){
+  .ch-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+  .card{padding:10px 6px}.card-logo{width:40px;height:40px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Toast -->
+  <div class="toast" :class="{show:toast}">{{toast}}</div>
+
+  <!-- Kids Lock -->
+  <div class="kids-lock" v-if="kidsLocked">
+    <div class="kl-i">🔒</div>
+    <h2>Modo Infantil</h2>
+    <p style="color:var(--txt2);font-size:13px;margin-bottom:8px">Ingresa el PIN para salir</p>
+    <div class="pin-input">
+      <input v-for="i in 4" :key="i" :ref="el=>pinRefs[i-1]=el" type="password" maxlength="1" inputmode="numeric"
+        v-model="pinDigits[i-1]" @input="onPinInput(i-1)" @keydown.backspace="onPinBack(i-1,$event)">
+    </div>
+    <p v-if="pinError" style="color:var(--danger);font-size:12px;margin-top:6px">PIN incorrecto</p>
+  </div>
+
+  <!-- Mobile menu button -->
+  <div class="mobile-menu" @click="sideOpen=!sideOpen">☰</div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" :class="{collapsed:!sideOpen&&isMobile}" @click.self="isMobile&&(sideOpen=false)">
+    <div class="side-hdr" @click="sideOpen=!sideOpen">
+      <span class="logo-i">📺</span>
+      <span class="logo-t" v-show="sideOpen||!isMobile">IPTV Player</span>
+    </div>
+
+    <!-- Playlist tabs -->
+    <div class="sec" v-show="sideOpen||!isMobile">
+      <h3>Listas</h3>
+      <div class="pl-tabs">
+        <div v-for="(pl,i) in playlists" :key="i" class="pl-tab" :class="{on:activePl===i}" @click="switchPl(i)">
+          {{pl.name||('Lista '+(i+1))}}
+          <span class="rm" @click.stop="removePl(i)" v-if="playlists.length>1">✕</span>
+        </div>
+        <div class="pl-tab" @click="showNewPl=true" title="Agregar lista">＋</div>
+      </div>
+    </div>
+
+    <!-- Source buttons -->
+    <div class="sec" v-show="sideOpen||!isMobile">
+      <div class="src-btns">
+        <button class="btn btn-p" @click="openFile">📁 Archivo M3U</button>
+        <button class="btn btn-s" @click="showUrl=true">🌐 URL Remota</button>
+      </div>
+      <div class="cur-src" v-if="curSource"><small>{{curSource}}</small></div>
+    </div>
+
+    <!-- Search -->
+    <div class="sec search" v-show="(sideOpen||!isMobile)&&channels.length">
+      <input v-model="search" placeholder="🔍 Buscar canal..." @input="filter">
+      <button v-if="search" class="search-x" @click="search='';filter()">✕</button>
+    </div>
+
+    <!-- Categories -->
+    <div class="sec cats" v-show="(sideOpen||!isMobile)&&cats.length">
+      <h3>Categorías</h3>
+      <div class="cat-list">
+        <div class="cat" :class="{on:activeCat==='all'}" @click="selCat('all')">
+          <span class="cat-i">📋</span><span class="cat-n">Todos</span><span class="cat-c">{{channels.length}}</span>
+        </div>
+        <div v-for="c in cats" :key="c.name" class="cat" :class="{on:activeCat===c.name}" @click="selCat(c.name)">
+          <span class="cat-i">{{c.icon||'📁'}}</span><span class="cat-n">{{c.name}}</span><span class="cat-c">{{c.count}}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings button -->
+    <div class="sec" v-show="sideOpen||!isMobile" style="margin-top:auto">
+      <button class="btn btn-s" @click="showSettings=true">⚙️ Configuración</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Player -->
+    <div class="player-area" :class="{full:playerFull}">
+      <div v-if="curCh" style="width:100%;height:100%;position:relative">
+        <video ref="vid" autoplay controls playsinline @error="onErr" @play="playing=true" @pause="playing=false"></video>
+        <!-- Overlay -->
+        <div class="p-overlay" v-show="showOvl" @mousemove="showOvl=true;startOvlTimer()">
+          <div class="p-top">
+            <div class="np">
+              <span class="np-logo">{{curCh.logo||'📺'}}</span>
+              <div class="np-info">
+                <h2>{{curCh.name}}</h2>
+                <span class="np-cat">{{curCh.group||''}}</span>
+              </div>
+            </div>
+            <div class="p-ctrls">
+              <span v-if="recording" class="rec-badge"><span class="rec-dot"></span>REC</span>
+              <button class="ib" @click="toggleFav(curCh)" :title="isFav(curCh)?'Quitar favorito':'Agregar favorito'">{{isFav(curCh)?'⭐':'☆'}}</button>
+              <button class="ib" @click="toggleRec" :title="recording?'Detener grabación':'Grabar'">{{recording?'⏹':'🔴'}}</button>
+              <button class="ib" @click="showQ=!showQ" title="Calidad">⚙</button>
+              <button class="ib" @click="playerFull=!playerFull" title="Pantalla completa">{{playerFull?'🗗':'🗖'}}</button>
+            </div>
+          </div>
+          <div class="p-bot">
+            <button class="nb" @click="playPrev" title="Anterior">⏮</button>
+            <button class="nb" @click="togglePlay" title="Play/Pause">{{playing?'⏸':'▶'}}</button>
+            <button class="nb" @click="playNext" title="Siguiente">⏭</button>
+            <div class="vol">
+              <button class="ib" @click="toggleMute">{{muted?'🔇':'🔊'}}</button>
+              <input type="range" min="0" max="1" step="0.05" v-model.number="vol" @input="setVol">
+            </div>
+            <span class="s-info" v-if="sInfo">{{sInfo}}</span>
+          </div>
+          <!-- Quality menu -->
+          <div class="quality-menu" v-if="showQ&&hlsLevels.length">
+            <div class="q-opt" :class="{on:autoQ}" @click="setQuality(-1)"><span class="q-dot"></span>Auto</div>
+            <div v-for="(l,i) in hlsLevels" :key="i" class="q-opt" :class="{on:curLevel===i&&!autoQ}" @click="setQuality(i)">
+              <span class="q-dot"></span>{{l.height?p?l.height+'p':'?':'Nivel '+i}} <small style="color:var(--txt3)">{{l.bitrate?Math.round(l.bitrate/1000)+'kbps':''}}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="placeholder">
+        <div class="ph-c">
+          <span class="ph-i">📺</span>
+          <h2>IPTV Player</h2>
+          <p v-if="!channels.length">Carga tu lista M3U para empezar</p>
+          <p v-else>Selecciona un canal de la lista</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- EPG -->
+    <div class="epg-bar" v-if="curChEpg.length">
+      <div v-for="(p,i) in curChEpg" :key="i" class="epg-item" :class="{now:p._now}">
+        <div class="epg-time">{{p._startStr}} - {{p._stopStr}}</div>
+        <div class="epg-title">{{p.title}}</div>
+      </div>
+    </div>
+
+    <!-- Channel Grid -->
+    <div class="grid-area" v-show="!playerFull">
+      <div class="grid-hdr">
+        <h3>{{activeCat==='all'?'Todos los canales':activeCat}} <span class="ch-count">({{filtered.length}})</span></h3>
+        <div class="view-t">
+          <button :class="{on:view==='grid'}" @click="view='grid'">▦</button>
+          <button :class="{on:view==='list'}" @click="view='list'">☰</button>
+        </div>
+      </div>
+      <div v-if="paged.length" class="ch-grid" :class="view">
+        <div v-for="ch in paged" :key="ch.id" class="card" :class="{on:curCh?.id===ch.id}" @click="play(ch)" @dblclick="play(ch);playerFull=true">
+          <div class="card-logo">
+            <img v-if="ch.logo" :src="ch.logo" @error="$event.target.style.display='none'" loading="lazy">
+            <span v-else class="fallback">📺</span>
+          </div>
+          <div class="card-info">
+            <h4>{{ch.name}}</h4>
+            <span class="card-grp">{{ch.group||'Sin categoría'}}</span>
+          </div>
+          <button class="card-fav" @click.stop="toggleFav(ch)">{{isFav(ch)?'⭐':'☆'}}</button>
+        </div>
+      </div>
+      <div v-else-if="channels.length" class="empty">No se encontraron canales para "{{search}}"</div>
+      <div v-if="totalPages>1" class="pg">
+        <button @click="page=Math.max(1,page-1)" :disabled="page===1">◀</button>
+        <span>{{page}} / {{totalPages}}</span>
+        <button @click="page=Math.min(totalPages,page+1)" :disabled="page===totalPages">▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: URL -->
+  <div class="modal-bg" v-if="showUrl" @click.self="showUrl=false">
+    <div class="modal">
+      <h3>🌐 Cargar lista remota</h3>
+      <input v-model="remoteUrl" placeholder="https://ejemplo.com/lista.m3u" @keyup.enter="loadUrl">
+      <div class="modal-btns">
+        <button class="btn btn-s btn-sm" @click="showUrl=false">Cancelar</button>
+        <button class="btn btn-p btn-sm" @click="loadUrl" :disabled="!remoteUrl">Cargar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Playlist -->
+  <div class="modal-bg" v-if="showNewPl" @click.self="showNewPl=false">
+    <div class="modal">
+      <h3>📋 Nueva lista</h3>
+      <input v-model="newPlName" placeholder="Nombre (ej: Deportes, Cine...)">
+      <input v-model="newPlUrl" placeholder="URL del M3U (opcional)">
+      <div class="modal-btns">
+        <button class="btn btn-s btn-sm" @click="showNewPl=false">Cancelar</button>
+        <button class="btn btn-p btn-sm" @click="addPlaylist">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings -->
+  <div class="modal-bg" v-if="showSettings" @click.self="showSettings=false">
+    <div class="modal">
+      <h3>⚙️ Configuración</h3>
+      <div class="row"><label>EPG URL</label><input v-model="settings.epgUrl" placeholder="https://...xmltv..." style="flex:2;margin-bottom:0"></div>
+      <div style="height:10px"></div>
+      <div class="row"><label>PIN Modo Infantil</label><input v-model="settings.kidsPin" type="password" maxlength="4" placeholder="4 dígitos" style="flex:2;margin-bottom:0"></div>
+      <div style="height:10px"></div>
+      <div class="row"><label>Calidad preferida</label>
+        <select v-model="settings.quality" style="flex:2;margin-bottom:0">
+          <option value="auto">Automática</option><option value="best">Mejor disponible</option>
+        </select>
+      </div>
+      <div style="height:14px"></div>
+      <h3 style="font-size:14px;margin-bottom:8px">📁 Grabaciones</h3>
+      <div v-if="recFiles.length" style="max-height:120px;overflow-y:auto;margin-bottom:10px">
+        <div v-for="f in recFiles" :key="f.name" style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--txt2);border-bottom:1px solid var(--border)">
+          <span>{{f.name}}</span><span>{{formatSize(f.size)}}</span>
+        </div>
+      </div>
+      <p v-else style="font-size:12px;color:var(--txt3);margin-bottom:10px">No hay grabaciones</p>
+      <div class="modal-btns">
+        <button class="btn btn-s btn-sm" @click="showSettings=false">Cerrar</button>
+        <button class="btn btn-p btn-sm" @click="saveSettings">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" ref="fileIn" accept=".m3u,.m3u8,.txt" style="display:none" @change="onFile">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+<script>
+const CAT_ICONS={deportes:'⚽',sports:'⚽',cine:'🎬',movies:'🎬',peliculas:'🎬',noticias:'📰',news:'📰',infantil:'👶',kids:'👶',musica:'🎵',music:'🎵',documentales:'📚',documentary:'📚',entretenimiento:'🎭',entertainment:'🎭',series:'📺',novelas:'💐',latino:'🌎',españa:'🇪🇸',mexico:'🇲🇽',argentina:'🇦🇷',colombia:'🇨🇴',usa:'🇺🇸'};
+function catIcon(n){const l=n.toLowerCase();for(const[k,v]of Object.entries(CAT_ICONS))if(l.includes(k))return v;return'📁'}
+function parseM3U(c){const lines=c.split('\n').map(l=>l.trim()).filter(Boolean);const chs=[];let cur=null,id=0;for(const l of lines){if(l.startsWith('#EXTINF:')){cur={};id++;const am=l.match(/([\w-]+)="([^"]*)"/g);if(am)for(const a of am){const[k,v]=a.split('=').map(s=>s.replace(/"/g,''));if(k==='tvg-logo')cur.logo=v;if(k==='tvg-name')cur.tvgName=v;if(k==='group-title')cur.group=v;if(k==='tvg-id')cur.tvgId=v}const nm=l.match(/,\s*(.+)$/);cur.name=nm?nm[1].trim():'Canal '+id;cur.id=id}else if(cur&&!l.startsWith('#')){cur.url=l;chs.push(cur);cur=null}}return chs}
+function fmtTime(s){if(!s||s.length<14)return'';return s.slice(8,10)+':'+s.slice(10,12)}
+
+const{createApp,ref,computed,watch,onMounted,nextTick}=Vue;
+createApp({
+setup(){
+  const channels=ref([]);const filtered=ref([]);const cats=ref([]);const favs=ref([]);
+  const curCh=ref(null);const search=ref('');const activeCat=ref('all');const view=ref('grid');
+  const page=ref(1);const ps=50;const loading=ref(false);const sideOpen=ref(true);
+  const playerFull=ref(false);const showOvl=ref(true);const playing=ref(false);
+  const muted=ref(false);const vol=ref(1);const sInfo=ref('');const curSource=ref('');
+  const showUrl=ref(false);const remoteUrl=ref('');
+  const showNewPl=ref(false);const newPlName=ref('');const newPlUrl=ref('');
+  const showSettings=ref(false);
+  const settings=ref({epgUrl:'',kidsPin:'',quality:'auto'});
+  const playlists=ref([{name:'Mi Lista',channels:[],source:''}]);
+  const activePl=ref(0);const recording=ref(false);const recId=ref(null);
+  const recFiles=ref([]);const toast=ref('');const isMobile=ref(false);
+  const kidsLocked=ref(false);const pinDigits=ref(['','','','']);const pinRefs=ref([]);const pinError=ref(false);
+  const showQ=ref(false);const hlsLevels=ref([]);const curLevel=ref(-1);const autoQ=ref(true);
+  const epgData=ref({});const curChEpg=ref([]);
+  const fileIn=ref(null);const vid=ref(null);
+  let hls=null;let ovlTimer=null;
+
+  const totalPages=computed(()=>Math.ceil(filtered.value.length/ps));
+  const paged=computed(()=>{const s=(page.value-1)*ps;return filtered.value.slice(s,s+ps)});
+
+  function showToast(m,ms=2500){toast.value=m;setTimeout(()=>toast.value='',ms)}
+
+  function filter(){
+    let r=[...channels.value];
+    if(activeCat.value!=='all')r=r.filter(ch=>(ch.group||'Sin categoría')===activeCat.value);
+    if(search.value){const q=search.value.toLowerCase();r=r.filter(ch=>ch.name.toLowerCase().includes(q)||(ch.group||'').toLowerCase().includes(q))}
+    filtered.value=r;page.value=1;
+  }
+  function selCat(c){activeCat.value=c;filter()}
+
+  function processChannels(raw,src){
+    channels.value=raw;
+    const cm={};for(const ch of raw){const g=ch.group||'Sin categoría';cm[g]=(cm[g]||0)+1}
+    cats.value=Object.entries(cm).map(([n,c])=>({name:n,count:c,icon:catIcon(n)})).sort((a,b)=>b.count-a.count);
+    curSource.value=src||'';
+    playlists.value[activePl.value]={...playlists.value[activePl.value],channels:raw,source:src};
+    savePlaylists();filter();
+    if(settings.value.epgUrl)loadEpg();
+  }
+
+  function openFile(){fileIn.value?.click()}
+  async function onFile(e){const f=e.target.files[0];if(!f)return;const t=await f.text();processChannels(parseM3U(t),f.name);showToast('✅ '+channels.value+' canales cargados');e.target.value=''}
+
+  async function loadUrl(){
+    if(!remoteUrl.value)return;showUrl.value=false;loading.value=true;
+    try{const r=await fetch('/api/fetch-m3u',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:remoteUrl.value})});
+    const d=await r.json();if(d.error)throw new Error(d.error);processChannels(parseM3U(d.content),remoteUrl.value);showToast('✅ '+channels.value.length+' canales cargados')}catch(e){showToast('❌ '+e.message)}
+    loading.value=false;
+  }
+
+  async function play(ch){
+    curCh.value=ch;await nextTick();const video=vid.value;if(!video)return;
+    if(hls){hls.destroy();hls=null}
+    let url=ch.url;
+    const isHLS=ch.url.includes('.m3u8')||ch.url.includes('m3u8');
+    if(ch.url.startsWith('http'))url='/api/proxy?url='+encodeURIComponent(ch.url);
+    if(isHLS&&Hls.isSupported()){
+      hls=new Hls({enableWorker:true,lowLatencyMode:true,maxBufferLength:30});
+      hls.loadSource(url);hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED,()=>{video.play().catch(()=>{})});
+      hls.on(Hls.Events.LEVEL_SWITCHED,(e,d)=>{const l=hls.levels[d.level];if(l)sInfo.value=l.width+'×'+l.height+' '+Math.round(l.bitrate/1000)+'kbps';curLevel.value=d.level});
+      hls.on(Hls.Events.ERROR,(e,d)=>{if(d.fatal)sInfo.value='⚠️ Error de stream'});
+      hlsLevels.value=[];autoQ.value=true;
+      hls.on(Hls.Events.MANIFEST_PARSED,(e,d)=>{hlsLevels.value=hls.levels||[]});
+    }else{video.src=url;video.play().catch(()=>{})}
+    playing.value=true;showOvlFn();sInfo.value='';showQ.value=false;
+    loadEpgForChannel(ch);
+  }
+  function playNext(){if(!curCh.value)return;const i=filtered.value.findIndex(c=>c.id===curCh.value.id);if(i>=0&&i<filtered.value.length-1)play(filtered.value[i+1])}
+  function playPrev(){if(!curCh.value)return;const i=filtered.value.findIndex(c=>c.id===curCh.value.id);if(i>0)play(filtered.value[i-1])}
+  function togglePlay(){const v=vid.value;if(!v)return;if(v.paused){v.play();playing.value=true}else{v.pause();playing.value=false}}
+  function toggleMute(){const v=vid.value;if(!v)return;v.muted=!v.muted;muted.value=v.muted}
+  function setVol(){const v=vid.value;if(!v)return;v.volume=vol.value;muted.value=vol.value===0}
+  function onErr(){sInfo.value='⚠️ Error de reproducción'}
+  function showOvlFn(){showOvl.value=true;clearTimeout(ovlTimer);ovlTimer=setTimeout(()=>{if(playing.value)showOvl.value=false},4000)}
+
+  function toggleFav(ch){if(!ch)return;const i=favs.value.indexOf(ch.id);if(i>=0)favs.value.splice(i,1);else favs.value.push(ch.id);saveSettings()}
+  function isFav(ch){return ch&&favs.value.includes(ch.id)}
+
+  function setQuality(i){if(!hls)return;if(i<0){hls.currentLevel=-1;autoQ.value=true}else{hls.currentLevel=i;autoQ.value=false;curLevel.value=i}showQ.value=false}
+
+  // Recording
+  async function toggleRec(){
+    if(recording.value&&recId.value){await fetch('/api/record/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:recId.value})});recording.value=false;recId.value=null;showToast('⏹ Grabación detenida');loadRecFiles()}
+    else if(curCh.value){try{const r=await fetch('/api/record/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:curCh.value.url,name:curCh.value.name})});const d=await r.json();recId.value=d.id;recording.value=true;showToast('🔴 Grabando...')}catch(e){showToast('❌ Error al grabar')}}
+  }
+  async function loadRecFiles(){try{const r=await fetch('/api/record/list');const d=await r.json();recFiles.value=d.files||[]}catch{}}
+
+  // EPG
+  async function loadEpg(){
+    if(!settings.value.epgUrl)return;
+    try{const r=await fetch('/api/epg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:settings.value.epgUrl})});const d=await r.json();if(d.programs)epgData.value=d.programs}catch(e){console.error('EPG error:',e)}
+  }
+  function loadEpgForChannel(ch){
+    if(!ch)return;curChEpg.value=[];
+    const progs=epgData.value[ch.tvgId]||epgData.value[ch.tvgName]||[];
+    if(!progs.length)return;
+    const now=Date.now();
+    curChEpg.value=progs.slice(0,8).map(p=>{
+      const st=p.start?parseEpgTime(p.start):0;const en=p.stop?parseEpgTime(p.stop):0;
+      return{...p,_startStr:fmtTime(p.start),_stopStr:fmtTime(p.stop),_now:now>=st&&now<en};
+    });
+  }
+  function parseEpgTime(s){if(!s||s.length<14)return 0;const y=s.slice(0,4),m=s.slice(4,6),d=s.slice(6,8),h=s.slice(8,10),mi=s.slice(10,12);return new Date(y,m-1,d,h,mi).getTime()}
+
+  // Playlists
+  function switchPl(i){activePl.value=i;if(playlists.value[i].channels.length)processChannels(playlists.value[i].channels,playlists.value[i].source);else{channels.value=[];filtered.value=[];cats.value=[]}}
+  function removePl(i){if(playlists.value.length<=1)return;playlists.value.splice(i,1);if(activePl.value>=playlists.value.length)activePl.value=playlists.value.length-1;switchPl(activePl.value);savePlaylists()}
+  async function addPlaylist(){
+    showNewPl.value=false;const name=newPlName.value||'Lista '+(playlists.value.length+1);newPlName.value='';
+    playlists.value.push({name,channels:[],source:''});activePl.value=playlists.value.length-1;
+    if(newPlUrl.value){remoteUrl.value=newPlUrl.value;newPlUrl.value='';await loadUrl()}
+    savePlaylists();
+  }
+  function savePlaylists(){fetch('/api/playlists',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lists:playlists.value})})}
+
+  // Settings
+  async function saveSettings(){
+    await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...settings.value,favs:favs.value})});
+    showSettings.value=false;showToast('✅ Configuración guardada');
+    if(settings.value.epgUrl)loadEpg();
+  }
+  async function loadSettings(){
+    try{const r=await fetch('/api/settings');const d=await r.json();if(d.epgUrl)settings.value={...settings.value,...d};if(d.favs)favs.value=d.favs}catch{}
+  }
+
+  // Kids mode
+  function onPinInput(i){if(pinDigits.value[i]&&i<3)pinRefs.value[i+1]?.focus();checkPin()}
+  function onPinBack(i,e){if(!pinDigits.value[i]&&i>0){pinRefs.value[i-1]?.focus();pinDigits.value[i-1]=''}}
+  function checkPin(){const p=pinDigits.value.join('');if(p.length===4){if(p===settings.value.kidsPin){kidsLocked.value=false;pinDigits.value=['','','',''];pinError.value=false}else{pinError.value=true;setTimeout(()=>{pinDigits.value=['','','',''];pinError.value=false;pinRefs.value[0]?.focus()},800)}}}
+  function enterKids(){if(settings.value.kidsPin){kidsLocked.value=true;nextTick(()=>pinRefs.value[0]?.focus())}}
+
+  // Helpers
+  function formatSize(b){if(b>1073741824)return(b/1073741824).toFixed(1)+'GB';if(b>1048576)return(b/1048576).toFixed(1)+'MB';return(b/1024).toFixed(0)+'KB'}
+
+  // Keyboard
+  function onKey(e){
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+    if(kidsLocked.value)return;
+    switch(e.key){
+      case'f':if(curCh.value)playerFull.value=!playerFull.value;break;
+      case'ArrowUp':playPrev();break;case'ArrowDown':playNext();break;
+      case' ':e.preventDefault();togglePlay();break;
+      case'm':toggleMute();break;case'Escape':playerFull.value=false;break;
+      case'/':e.preventDefault();document.querySelector('.search input')?.focus();break;
+    }
+  }
+
+  // Mobile detect
+  function checkMobile(){isMobile.value=window.innerWidth<=768;if(isMobile.value)sideOpen.value=false}
+
+  onMounted(async()=>{
+    document.addEventListener('keydown',onKey);
+    window.addEventListener('resize',checkMobile);checkMobile();
+    await loadSettings();
+    try{const r=await fetch('/api/playlists');const d=await r.json();if(d.lists?.length){playlists.value=d.lists;switchPl(0)}}catch{}
+    loadRecFiles();
+  });
+
+  return{channels,filtered,cats,favs,curCh,search,activeCat,view,page,ps,totalPages,paged,
+    loading,sideOpen,playerFull,showOvl,playing,muted,vol,sInfo,curSource,
+    showUrl,remoteUrl,showNewPl,newPlName,newPlUrl,showSettings,settings,
+    playlists,activePl,recording,recFiles,toast,isMobile,kidsLocked,pinDigits,pinRefs,pinError,
+    showQ,hlsLevels,curLevel,autoQ,curChEpg,
+    fileIn,vid,
+    filter,selCat,openFile,onFile,loadUrl,play,playNext,playPrev,togglePlay,toggleMute,setVol,onErr,
+    toggleFav,isFav,setQuality,toggleRec,loadRecFiles,formatSize,
+    switchPl,removePl,addPlaylist,saveSettings,enterKids,onPinInput,onPinBack,checkPin,showToast,
+    startOvlTimer:showOvlFn};
+}
+}).mount('#app');
+</script>
+</body>
+</html>
